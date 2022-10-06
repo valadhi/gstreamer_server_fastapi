@@ -1,12 +1,19 @@
 import json, os
+import gi
+
+gi.require_version('Gst', '1.0')
+gi.require_version('GstRtspServer', '1.0')
+from gi.repository import GLib, Gst, GstRtspServer
 
 from fastapi import FastAPI
 
 app = FastAPI()
+loop = GLib.MainLoop()
 
 CONFIG_DEFAULTS = {
     'host': '127.0.0.1',
     'port': '8554',
+    'mount': 'test',
     'width': '1280',
     'height': '800',
     'bitrate': '50000',
@@ -80,3 +87,33 @@ def set_resolution(width: int, height: int):
 def get_url():
     config = load_config()
     return config['host'] + ":" + config['port']
+
+@app.get("/start-stream")
+def start_stream():
+    Gst.init(None)
+    config = load_config()
+    server = GstRtspServer.RTSPServer()
+    port = config['port']
+    mount = config['mount']
+    server.service = port
+    mounts = server.get_mount_points()
+    factory = GstRtspServer.RTSPMediaFactory()
+    pipeline = ("v4l2src device=/dev/video0 io-mode=2  ! " +
+                "image/jpeg,width=1280,height=800,framerate=30/1 ! " +
+                "nvjpegdec ! " +
+                "video/x-raw ! " +
+                "omxh264enc bitrate=500000 control-rate=constant ! " +
+                "rtph264pay name=pay0 pt=96")
+    factory.set_launch(pipeline)
+    factory.set_shared(True)
+    mounts.add_factory('/test', factory)
+    server.attach()
+
+    print('stream ready at rtsp://127.0.0.1:%s%s' % (port, mount))
+
+    loop.run()
+
+
+@app.get("/stop-stream")
+def stop_stream():
+    loop.quit()
