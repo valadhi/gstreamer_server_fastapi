@@ -86,7 +86,7 @@ def set_resolution(width: int, height: int):
 @app.get("/get-url")
 def get_url():
     config = load_config()
-    return config['host'] + ":" + config['port']
+    return config['host'] + ":" + config['port'] + config['mount']
 
 @app.get("/start-stream")
 def start_stream():
@@ -95,15 +95,18 @@ def start_stream():
     server = GstRtspServer.RTSPServer()
     port = config['port']
     mount = config['mount']
+    width = config['width']
+    height = config['height']
+    fps = config['fps']
     server.service = port
     mounts = server.get_mount_points()
     factory = GstRtspServer.RTSPMediaFactory()
     pipeline = ("v4l2src device=/dev/video0 io-mode=2  ! " +
-                "image/jpeg,width=1280,height=800,framerate=30/1 ! " +
+                "image/jpeg,width={},height={},framerate={}/1 ! " +
                 "nvjpegdec ! " +
                 "video/x-raw ! " +
                 "omxh264enc bitrate=500000 control-rate=constant ! " +
-                "rtph264pay name=pay0 pt=96")
+                "rtph264pay name=pay0 pt=96". format(width, height, fps))
     factory.set_launch(pipeline)
     factory.set_shared(True)
     mounts.add_factory('/test', factory)
