@@ -1,3 +1,4 @@
+from threading import Thread
 import json, os
 import gi
 
@@ -13,7 +14,7 @@ loop = GLib.MainLoop()
 CONFIG_DEFAULTS = {
     'host': '127.0.0.1',
     'port': '8554',
-    'mount': 'test',
+    'mount': '/test',
     'width': '1280',
     'height': '800',
     'bitrate': '50000',
@@ -90,6 +91,7 @@ def get_url():
 
 @app.get("/start-stream")
 def start_stream():
+
     Gst.init(None)
     config = load_config()
     server = GstRtspServer.RTSPServer()
@@ -98,6 +100,7 @@ def start_stream():
     width = config['width']
     height = config['height']
     fps = config['fps']
+    bitrate = config['bitrate']
     server.service = port
     mounts = server.get_mount_points()
     factory = GstRtspServer.RTSPMediaFactory()
@@ -105,18 +108,26 @@ def start_stream():
                 "image/jpeg,width={},height={},framerate={}/1 ! " +
                 "nvjpegdec ! " +
                 "video/x-raw ! " +
-                "omxh264enc bitrate=500000 control-rate=constant ! " +
-                "rtph264pay name=pay0 pt=96". format(width, height, fps))
+                "omxh264enc bitrate={} control-rate=constant ! " +
+                "rtph264pay name=pay0 pt=96". format(width, height, fps, bitrate))
     factory.set_launch(pipeline)
     factory.set_shared(True)
-    mounts.add_factory('/test', factory)
+    mounts.add_factory(mount, factory)
     server.attach()
 
     print('stream ready at rtsp://127.0.0.1:%s%s' % (port, mount))
 
-    loop.run()
+    loop_thread = Thread(target = run_loop)
+    loop_thread.start()
+    return True
 
+def run_loop():
+    global loop
+    loop.run()
 
 @app.get("/stop-stream")
 def stop_stream():
+    global loop
+    print(loop)
     loop.quit()
+    return True
