@@ -115,11 +115,9 @@ def start_stream():
     mounts.add_factory(mount, factory)
     server.attach()
 
-    print('stream ready at rtsp://127.0.0.1:%s%s' % (port, mount))
-
-    loop_thread = Thread(target = run_loop)
+    loop_thread = Thread(target=run_loop)
     loop_thread.start()
-    return True
+    return 'stream ready at rtsp://127.0.0.1:%s%s' % (port, mount)
 
 def run_loop():
     global loop
@@ -128,6 +126,5 @@ def run_loop():
 @app.get("/stop-stream")
 def stop_stream():
     global loop
-    print(loop)
     loop.quit()
     return True
